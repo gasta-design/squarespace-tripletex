@@ -63,6 +63,10 @@
   .msg.ok { background: var(--ok-bg); color: var(--ok); } .msg.err { background: var(--err-bg); color: var(--err); }
   .msg.info { background: var(--idle-bg); }
   .login { max-width: 380px; margin: 10vh auto; }
+  .logo { display: block; height: auto; width: auto; max-height: 45px; max-width: 100%; }
+  .bar h1 { line-height: 0; }
+  .login-logo { margin: 10vh auto 20px; max-width: 380px; display: flex; justify-content: center; }
+  .login-logo + .panel.login { margin-top: 0; }
   .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
   .pre { white-space: pre-wrap; font-size: 13px; color: var(--muted); max-width: 420px; }
   .hidden { display: none !important; }
@@ -77,7 +81,7 @@
 <body>
 <header class="hidden" id="hdr">
   <div class="bar">
-    <h1>Squarespace → Tripletex</h1>
+    <h1><img src="logo.png" alt="Gasta" class="logo"></h1>
     <nav class="main">
       <button data-nav="clients" class="on">Klienter</button>
       <button data-nav="users">Brukere</button>
@@ -117,6 +121,7 @@ function showMsg(el, kind, text) { el.className = `msg ${kind}`; el.textContent 
 function renderLogin() {
   document.getElementById("hdr").classList.add("hidden");
   app.innerHTML = `
+    <div class="login-logo"><img src="logo.png" alt="Gasta" class="logo"></div>
     <div class="panel login">
       <h2>Logg inn</h2>
       <p class="muted">Administrasjon av Squarespace–Tripletex-integrasjoner.</p>
