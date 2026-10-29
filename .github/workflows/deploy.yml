@@ -2,7 +2,7 @@ name: Deploy
 
 # Kjører ved hver push til main, eller manuelt (Actions → Deploy → Run workflow).
 # Krever repository-secret SUPABASE_ACCESS_TOKEN og repository-variabel SUPABASE_PROJECT_REF.
-# Valgfri variabel ADMIN_EMAILS (kommaseparert liste over hvem som får logge inn).
+# Brukere administreres i appen under «Brukere».
 on:
   push:
     branches: [main]
@@ -50,7 +50,8 @@ jobs:
           OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
           existing=$(supabase secrets list --project-ref "$REF" -o json | jq -r '.[].name')
           args="ALLOWED_ORIGIN=https://${OWNER}.github.io"
-          if [ -n "${{ vars.ADMIN_EMAILS }}" ]; then args="$args ADMIN_EMAILS=${{ vars.ADMIN_EMAILS }}"; fi
+          # Tidligere tilgangsliste er erstattet av brukeradministrasjon i appen
+          if echo "$existing" | grep -qx ADMIN_EMAILS; then supabase secrets unset --yes --project-ref "$REF" ADMIN_EMAILS > /dev/null; fi
           if ! echo "$existing" | grep -qx ENCRYPTION_KEY; then
             echo "Genererer ENCRYPTION_KEY (første gang)"
             args="$args ENCRYPTION_KEY=$(openssl rand -hex 32)"

@@ -4,7 +4,7 @@ import { Squarespace } from "./squarespace.ts";
 import { Tripletex, type TxEnv } from "./tripletex.ts";
 import { type ClientRow, type Store, SyncEngine, type SyncedOrderRow } from "./sync.ts";
 
-function serviceKey(): string {
+export function serviceKey(): string {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (legacy) return legacy;
   // Nyere prosjekter: SUPABASE_SECRET_KEYS = {"default": "sb_secret_..."}

@@ -44,7 +44,6 @@ Kiekvienas `git push` į `main` šaką automatiškai:
 3. **GitHub repozitorija → Settings → Secrets and variables → Actions:**
    - *Secrets* → `SUPABASE_ACCESS_TOKEN` = Supabase tokenas
    - *Variables* → `SUPABASE_PROJECT_REF` = projekto ref (iš adreso `supabase.com/dashboard/project/<ref>`)
-   - *Variables* (neprivaloma) → `ADMIN_EMAILS` = kas gali prisijungti, pvz., `simon@gasta.no`
 4. **Settings → Pages → Source: GitHub Actions.**
 5. **Actions → Deploy → Run workflow.** Po ~2 min aplikacija veiks adresu `https://<vardas>.github.io/<repo>/`.
 
@@ -53,6 +52,13 @@ Kol `SUPABASE_PROJECT_REF` nenustatytas, diegimas tiesiog praleidžiamas.
 > ⚠️ `ENCRYPTION_KEY` sugeneruojama tik vieną kartą. Neištrinkite jos iš Supabase → Edge Functions → Secrets, kitaip įvestų klientų raktų nebebus galima iššifruoti (tektų įvesti iš naujo).
 
 ---
+
+## Vartotojai ir slaptažodžiai
+
+Vieša registracija uždaryta. Visi vartotojai turi pilną prieigą ir valdomi pačioje aplikacijoje:
+
+- **Brukere**: vartotojų sąrašas (sukūrimo ir paskutinio prisijungimo data), naujo vartotojo pridėjimas su laikinu slaptažodžiu, kito vartotojo slaptažodžio pakeitimas („Nytt passord“) ir ištrynimas. Savęs ištrinti negalima.
+- **Endre passord**: savo slaptažodžio keitimas. Būtina įvesti dabartinį slaptažodį, jis patikrinamas serveryje. Naujas slaptažodis turi būti bent 10 simbolių.
 
 ## Naujo kliento prijungimas
 
@@ -93,7 +99,7 @@ Aplikacijoje:
 |---|---|
 | Nevyksta automatinis sinchronizavimas | SQL Editor: `select * from cron.job_run_details order by start_time desc limit 20;` |
 | Nepavyko diegimas | GitHub → Actions → Deploy → žiūrėkite, kuris žingsnis raudonas |
-| „Ikke innlogget“ | Vartotojas sukurtas Supabase Auth? `ADMIN_EMAILS` teisingas? |
+| „Ikke innlogget“ | Ar vartotojas yra skiltyje *Brukere* (arba Supabase → Authentication → Users)? |
 | Tripletex klaida apie banko sąskaitą | Tripletex: įveskite įmonės banko sąskaitą |
 | Squarespace 401/403 | Raktas su Orders + Products teisėmis, Commerce Advanced planas |
 | Edge Function žurnalai | Supabase → Edge Functions → sync/admin → Logs |

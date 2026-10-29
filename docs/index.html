@@ -67,13 +67,22 @@
   .pre { white-space: pre-wrap; font-size: 13px; color: var(--muted); max-width: 420px; }
   .hidden { display: none !important; }
   .stickybar { position: sticky; bottom: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px; }
-  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } .panel { padding: 16px; } }
+  nav.main { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav.main button { border: none; background: none; color: var(--muted); padding: 6px 10px; }
+  nav.main button.on { color: var(--text); background: var(--idle-bg); }
+  .narrow { max-width: 460px; }
+  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } .panel { padding: 16px; } .bar { flex-wrap: wrap; } .bar h1 { flex-basis: 100%; } .bar .who { display: none; } }
 </style>
 </head>
 <body>
 <header class="hidden" id="hdr">
   <div class="bar">
     <h1>Squarespace → Tripletex</h1>
+    <nav class="main">
+      <button data-nav="clients" class="on">Klienter</button>
+      <button data-nav="users">Brukere</button>
+      <button data-nav="password">Endre passord</button>
+    </nav>
     <span class="who" id="who"></span>
     <button id="logout">Logg ut</button>
   </div>
@@ -129,6 +138,7 @@ document.getElementById("logout").onclick = async () => { await sb.auth.signOut(
 
 // ---------------- klientliste ----------------
 async function renderList() {
+  setNav("clients");
   app.innerHTML = `<div class="row" style="margin-bottom:16px"><div><h2>Klienter</h2><p class="muted" style="margin:0">Hver klient er én Squarespace-butikk koblet til én Tripletex-konto.</p></div><span class="spacer"></span><button class="primary" id="new">+ Ny klient</button></div><div class="panel" id="list"><p class="muted">Laster …</p></div>`;
   document.getElementById("new").onclick = () => renderClient(null);
   try {
@@ -149,6 +159,7 @@ async function renderList() {
 let current = null, txOptions = null;
 
 async function renderClient(id) {
+  setNav("clients");
   current = null; txOptions = null;
   app.innerHTML = `<p class="muted">Laster …</p>`;
   if (id) {
@@ -370,6 +381,95 @@ async function renderLog(id) {
     document.getElementById("reload").onclick = () => renderLog(id);
     el.querySelectorAll("[data-retry]").forEach((b) => b.onclick = async () => { await api("retry_order", { id, sqs_order_id: b.dataset.retry }); b.replaceWith("Settes i kø"); });
   } catch (e) { el.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+}
+
+// ---------------- navigasjon ----------------
+function setNav(name) { document.querySelectorAll("nav.main button").forEach((b) => b.classList.toggle("on", b.dataset.nav === name)); }
+document.querySelectorAll("nav.main button").forEach((b) => b.onclick = () => ({ clients: renderList, users: renderUsers, password: renderPassword })[b.dataset.nav]());
+
+// ---------------- brukere ----------------
+const MIN_PW = 10;
+async function renderUsers() {
+  setNav("users");
+  app.innerHTML = `
+    <h2>Brukere</h2>
+    <p class="muted">Alle brukere har full tilgang til appen. Åpen registrering er stengt – nye brukere legges til her.</p>
+    <div id="umsg" class="hidden"></div>
+    <div class="panel" id="ulist"><p class="muted">Laster …</p></div>
+    <div class="panel narrow">
+      <h3>Legg til bruker</h3>
+      <form id="uf" autocomplete="off">
+        <div class="field"><label for="u_email">E-post</label><input id="u_email" type="email" required autocomplete="off"></div>
+        <div class="field"><label for="u_pw">Midlertidig passord</label><input id="u_pw" type="password" required minlength="${MIN_PW}" autocomplete="new-password">
+          <div class="hint">Minst ${MIN_PW} tegn. Gi passordet til brukeren på en trygg måte – brukeren bør endre det etter første innlogging.</div></div>
+        <button class="primary" type="submit" id="u_add">Legg til</button>
+      </form>
+    </div>`;
+  const msg = document.getElementById("umsg");
+  const load = async () => {
+    const el = document.getElementById("ulist");
+    try {
+      const { users, me } = await api("list_users");
+      el.innerHTML = `<div class="tablewrap"><table><thead><tr><th>E-post</th><th>Opprettet</th><th>Sist innlogget</th><th></th></tr></thead><tbody>${
+        users.map((u) => `<tr><td><strong>${esc(u.email)}</strong>${u.id === me ? ' <span class="badge">Deg</span>' : ""}</td>
+          <td>${fmt(u.created_at)}</td><td>${fmt(u.last_sign_in_at)}</td>
+          <td style="text-align:right">${u.id === me ? "" : `<button class="link" data-pw="${esc(u.id)}" data-email="${esc(u.email)}">Nytt passord</button>
+            &nbsp; <button class="link danger" style="color:var(--err)" data-del="${esc(u.id)}" data-email="${esc(u.email)}">Slett</button>`}</td></tr>`).join("")
+      }</tbody></table></div>`;
+      el.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+        if (!confirm(`Slette brukeren ${b.dataset.email}? Brukeren mister tilgang umiddelbart.`)) return;
+        try { await api("delete_user", { id: b.dataset.del }); showMsg(msg, "ok", `${b.dataset.email} er slettet.`); load(); }
+        catch (e) { showMsg(msg, "err", e.message); }
+      });
+      el.querySelectorAll("[data-pw]").forEach((b) => b.onclick = async () => {
+        const pw = prompt(`Nytt passord for ${b.dataset.email} (minst ${MIN_PW} tegn):`);
+        if (pw === null) return;
+        try { await api("set_user_password", { id: b.dataset.pw, password: pw }); showMsg(msg, "ok", `Passordet til ${b.dataset.email} er endret.`); }
+        catch (e) { showMsg(msg, "err", e.message); }
+      });
+    } catch (e) { el.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+  document.getElementById("uf").onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("u_add"); btn.disabled = true;
+    try {
+      const email = document.getElementById("u_email").value.trim();
+      await api("create_user", { email, password: document.getElementById("u_pw").value });
+      showMsg(msg, "ok", `${email} er lagt til og kan logge inn nå.`);
+      e.target.reset(); load();
+    } catch (err) { showMsg(msg, "err", err.message); }
+    btn.disabled = false;
+  };
+  load();
+}
+
+// ---------------- endre passord ----------------
+function renderPassword() {
+  setNav("password");
+  app.innerHTML = `
+    <div class="panel narrow">
+      <h2>Endre passord</h2>
+      <p class="muted">For din egen bruker (${esc(document.getElementById("who").textContent)}).</p>
+      <div id="pmsg" class="hidden"></div>
+      <form id="pf">
+        <div class="field"><label for="p_old">Nåværende passord</label><input id="p_old" type="password" required autocomplete="current-password"></div>
+        <div class="field"><label for="p_new">Nytt passord</label><input id="p_new" type="password" required minlength="${MIN_PW}" autocomplete="new-password">
+          <div class="hint">Minst ${MIN_PW} tegn.</div></div>
+        <div class="field"><label for="p_rep">Gjenta nytt passord</label><input id="p_rep" type="password" required autocomplete="new-password"></div>
+        <button class="primary" type="submit" id="p_save">Endre passord</button>
+      </form>
+    </div>`;
+  const msg = document.getElementById("pmsg");
+  document.getElementById("pf").onsubmit = async (e) => {
+    e.preventDefault();
+    const o = p_old.value, n = p_new.value, r = p_rep.value;
+    if (n !== r) return showMsg(msg, "err", "De nye passordene er ikke like.");
+    if (n.length < MIN_PW) return showMsg(msg, "err", `Nytt passord må ha minst ${MIN_PW} tegn.`);
+    const btn = document.getElementById("p_save"); btn.disabled = true;
+    try { await api("change_password", { old_password: o, new_password: n }); e.target.reset(); showMsg(msg, "ok", "Passordet er endret. Bruk det nye passordet neste gang du logger inn."); }
+    catch (err) { showMsg(msg, "err", err.message); }
+    btn.disabled = false;
+  };
 }
 
 async function start() {

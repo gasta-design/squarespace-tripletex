@@ -1,7 +1,9 @@
 // API for administrasjonspanelet. Krever innlogget Supabase-bruker.
+// Åpen registrering er stengt, så alle brukere i Supabase Auth er administratorer (opprettes under «Brukere»).
 import { corsHeaders, json } from "../_shared/http.ts";
 import { encrypt } from "../_shared/crypto.ts";
-import { adminDb, apisFor, type ClientFull, runClientSync } from "../_shared/db.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { adminDb, apisFor, type ClientFull, runClientSync, serviceKey } from "../_shared/db.ts";
 import { DEFAULT_SETTINGS } from "../_shared/sync.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
@@ -23,6 +25,15 @@ function publicClient(c: ClientFull & Record<string, unknown>) {
 
 class BadRequest extends Error {}
 
+const MIN_PASSWORD = 10;
+function checkPassword(pw: unknown): string {
+  if (typeof pw !== "string" || pw.length < MIN_PASSWORD) throw new BadRequest(`Passordet må ha minst ${MIN_PASSWORD} tegn`);
+  if (pw.length > 72) throw new BadRequest("Passordet kan ha maks 72 tegn");
+  return pw;
+}
+const publicUser = (u: { id: string; email?: string; created_at?: string; last_sign_in_at?: string | null }) =>
+  ({ id: u.id, email: u.email, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at ?? null });
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Kun POST" }, 405);
@@ -33,8 +44,7 @@ Deno.serve(async (req) => {
   const jwt = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
   const { data: auth } = await db.auth.getUser(jwt);
   if (!auth?.user) return json({ error: "Ikke innlogget" }, 401);
-  const allow = (Deno.env.get("ADMIN_EMAILS") ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  if (allow.length && !allow.includes((auth.user.email ?? "").toLowerCase())) return json({ error: "Ingen tilgang" }, 403);
+  const me = auth.user;
 
   const body = await req.json().catch(() => ({}));
   const { action } = body as { action?: string };
@@ -170,6 +180,49 @@ Deno.serve(async (req) => {
 
       case "delete_client": {
         const { error } = await db.from("clients").delete().eq("id", body.id);
+        if (error) throw new Error(error.message);
+        return json({ ok: true });
+      }
+
+      // ---------- brukere ----------
+      case "list_users": {
+        const { data, error } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
+        if (error) throw new Error(error.message);
+        const users = data.users.map(publicUser).sort((a, b) => (a.email ?? "").localeCompare(b.email ?? ""));
+        return json({ users, me: me.id });
+      }
+
+      case "create_user": {
+        const email = String(body.email ?? "").trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new BadRequest("Ugyldig e-postadresse");
+        const { data, error } = await db.auth.admin.createUser({ email, password: checkPassword(body.password), email_confirm: true });
+        if (error) throw new BadRequest(/already|registered|exists/i.test(error.message) ? "Det finnes allerede en bruker med denne e-posten" : error.message);
+        return json({ user: publicUser(data.user) });
+      }
+
+      case "set_user_password": {
+        if (body.id === me.id) throw new BadRequest("Bruk «Endre passord» for din egen bruker");
+        const { error } = await db.auth.admin.updateUserById(String(body.id), { password: checkPassword(body.password) });
+        if (error) throw new Error(error.message);
+        return json({ ok: true });
+      }
+
+      case "delete_user": {
+        if (body.id === me.id) throw new BadRequest("Du kan ikke slette din egen bruker");
+        const { error } = await db.auth.admin.deleteUser(String(body.id));
+        if (error) throw new Error(error.message);
+        return json({ ok: true });
+      }
+
+      case "change_password": {
+        if (typeof body.old_password !== "string" || !body.old_password) throw new BadRequest("Skriv inn nåværende passord");
+        const newPw = checkPassword(body.new_password);
+        if (newPw === body.old_password) throw new BadRequest("Nytt passord må være forskjellig fra det gamle");
+        // Bekreft gammelt passord med en separat klient (påvirker ikke andre økter)
+        const verifier = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey(), { auth: { persistSession: false, autoRefreshToken: false } });
+        const { error: signErr } = await verifier.auth.signInWithPassword({ email: me.email!, password: body.old_password });
+        if (signErr) throw new BadRequest("Nåværende passord er feil");
+        const { error } = await db.auth.admin.updateUserById(me.id, { password: newPw });
         if (error) throw new Error(error.message);
         return json({ ok: true });
       }
