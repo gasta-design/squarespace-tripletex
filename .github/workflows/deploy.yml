@@ -1,0 +1,120 @@
+name: Deploy
+
+# Kjører ved hver push til main, eller manuelt (Actions → Deploy → Run workflow).
+# Krever repository-secret SUPABASE_ACCESS_TOKEN og repository-variabel SUPABASE_PROJECT_REF.
+# Valgfri variabel ADMIN_EMAILS (kommaseparert liste over hvem som får logge inn).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  supabase:
+    # Praleidžiama, kol Supabase dar nesukonfigūruotas
+    if: ${{ vars.SUPABASE_PROJECT_REF != '' }}
+    runs-on: ubuntu-latest
+    outputs:
+      anon_key: ${{ steps.keys.outputs.anon_key }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      API: https://api.supabase.com/v1/projects/${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Sjekk oppsett
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::Secret SUPABASE_ACCESS_TOKEN mangler"; exit 1; }
+          test -n "$REF" || { echo "::error::Variabel SUPABASE_PROJECT_REF mangler"; exit 1; }
+          cat > "$RUNNER_TEMP/sql.sh" <<'SH'
+          # Kjører SQL fra fil via Supabase Management API
+          sql() { jq -Rs '{query: .}' "$1" | curl -sS --fail-with-body -X POST "$API/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" -d @- ; echo; }
+          SH
+
+      - name: Database (tabeller og funksjoner)
+        run: |
+          . "$RUNNER_TEMP/sql.sh"
+          for f in supabase/migrations/*.sql; do echo "→ $f"; sql "$f"; done
+
+      - name: Edge Function-secrets
+        run: |
+          . "$RUNNER_TEMP/sql.sh"
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          existing=$(supabase secrets list --project-ref "$REF" -o json | jq -r '.[].name')
+          args="ALLOWED_ORIGIN=https://${OWNER}.github.io"
+          if [ -n "${{ vars.ADMIN_EMAILS }}" ]; then args="$args ADMIN_EMAILS=${{ vars.ADMIN_EMAILS }}"; fi
+          if ! echo "$existing" | grep -qx ENCRYPTION_KEY; then
+            echo "Genererer ENCRYPTION_KEY (første gang)"
+            args="$args ENCRYPTION_KEY=$(openssl rand -hex 32)"
+          fi
+          if ! echo "$existing" | grep -qx CRON_SECRET; then
+            echo "Genererer CRON_SECRET og lagrer i Vault (første gang)"
+            CS=$(openssl rand -hex 32)
+            echo "::add-mask::$CS"
+            args="$args CRON_SECRET=$CS"
+            sed -e "s#__PROJECT_URL__#https://${REF}.supabase.co#" -e "s#__CRON_SECRET__#${CS}#" \
+              supabase/cron/vault.sql.tmpl > "$RUNNER_TEMP/vault.sql"
+            sql "$RUNNER_TEMP/vault.sql" > /dev/null
+          fi
+          supabase secrets set --project-ref "$REF" $args > /dev/null
+          echo "Secrets oppdatert."
+
+      - name: Edge Functions
+        run: |
+          supabase functions deploy admin --project-ref "$REF" --use-api --no-verify-jwt
+          supabase functions deploy sync  --project-ref "$REF" --use-api --no-verify-jwt
+
+      - name: Automatisk synk hvert 10. minutt (pg_cron)
+        run: |
+          . "$RUNNER_TEMP/sql.sh"
+          sql supabase/cron/schedule.sql
+
+      - name: Innlogging (stenger åpen registrering)
+        run: |
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          SITE="https://${OWNER}.github.io/${GITHUB_REPOSITORY#*/}/"
+          jq -n --arg s "$SITE" '{disable_signup: true, site_url: $s}' | curl -fsS -X PATCH "$API/config/auth" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" -d @- > /dev/null
+          echo "Registrering stengt, site_url = $SITE"
+
+      - name: Hent offentlig (anon) nøkkel
+        id: keys
+        run: |
+          KEY=$(curl -fsS "$API/api-keys?reveal=false" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            | jq -r '([.[] | select(.type=="publishable")] + [.[] | select(.name=="anon")])[0].api_key')
+          test -n "$KEY" && test "$KEY" != "null" || { echo "::error::Fant ikke anon-nøkkel"; exit 1; }
+          echo "anon_key=$KEY" >> "$GITHUB_OUTPUT"
+
+  pages:
+    needs: supabase
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skriv config.js
+        run: |
+          cat > docs/config.js <<JS
+          window.APP_CONFIG = {
+            SUPABASE_URL: "https://${{ vars.SUPABASE_PROJECT_REF }}.supabase.co",
+            SUPABASE_ANON_KEY: "${{ needs.supabase.outputs.anon_key }}",
+          };
+          JS
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deploy
+        uses: actions/deploy-pages@v4

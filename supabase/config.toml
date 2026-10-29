@@ -1,0 +1,7 @@
+# Minimal konfigurasjon for `supabase functions deploy`.
+# Autentisering håndteres i funksjonene selv (admin: Supabase-innlogging, sync: CRON_SECRET).
+[functions.admin]
+verify_jwt = false
+
+[functions.sync]
+verify_jwt = false

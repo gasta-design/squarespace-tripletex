@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Squarespace → Tripletex</title>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --text: #1b1f24; --muted: #667085; --line: #e4e7ec;
+    --accent: #2f5bea; --accent-ink: #fff; --ok: #12805c; --ok-bg: #e7f6ef; --warn: #a15c00; --warn-bg: #fff4e0;
+    --err: #c0362c; --err-bg: #fdecea; --idle-bg: #eef0f3; --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111418; --panel: #1a1e24; --text: #e8eaed; --muted: #98a2b3; --line: #2b313a;
+      --accent: #6d8cff; --accent-ink: #0b1020; --ok: #4cc59a; --ok-bg: #12302a; --warn: #f0b45a; --warn-bg: #33270f;
+      --err: #ff8a80; --err-bg: #3a1a18; --idle-bg: #262b33; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--panel); border-bottom: 1px solid var(--line); }
+  .bar { max-width: 1040px; margin: 0 auto; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .bar h1 { font-size: 16px; margin: 0; flex: 1; }
+  .bar .who { color: var(--muted); font-size: 13px; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 80px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  h2 { font-size: 20px; margin: 0 0 4px; }
+  h3 { font-size: 15px; margin: 0 0 12px; }
+  p.muted, .muted { color: var(--muted); }
+  small.muted { font-size: 13px; }
+  button, .btn { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 8px 14px;
+    border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.danger { color: var(--err); }
+  button.link { border: none; background: none; color: var(--accent); padding: 0; }
+  button:disabled { opacity: .55; cursor: default; }
+  label { display: block; font-weight: 500; margin-bottom: 4px; font-size: 14px; }
+  input[type=text], input[type=email], input[type=password], input[type=datetime-local], select {
+    width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
+  .field { margin-bottom: 14px; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; font-weight: 400; }
+  .check input { margin-top: 4px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .spacer { flex: 1; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--idle-bg); color: var(--muted); }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.err { background: var(--err-bg); color: var(--err); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  tr.click { cursor: pointer; } tr.click:hover td { background: var(--bg); }
+  .tablewrap { overflow-x: auto; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 16px 0; }
+  .tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 12px; color: var(--muted); }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .msg { padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; font-size: 14px; white-space: pre-wrap; }
+  .msg.ok { background: var(--ok-bg); color: var(--ok); } .msg.err { background: var(--err-bg); color: var(--err); }
+  .msg.info { background: var(--idle-bg); }
+  .login { max-width: 380px; margin: 10vh auto; }
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .pre { white-space: pre-wrap; font-size: 13px; color: var(--muted); max-width: 420px; }
+  .hidden { display: none !important; }
+  .stickybar { position: sticky; bottom: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px; }
+  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } .panel { padding: 16px; } }
+</style>
+</head>
+<body>
+<header class="hidden" id="hdr">
+  <div class="bar">
+    <h1>Squarespace → Tripletex</h1>
+    <span class="who" id="who"></span>
+    <button id="logout">Logg ut</button>
+  </div>
+</header>
+<main id="app"></main>
+
+<script>
+const cfg = window.APP_CONFIG || {};
+const sb = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+const app = document.getElementById("app");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (d) => d ? new Date(d).toLocaleString("nb-NO", { dateStyle: "short", timeStyle: "short" }) : "–";
+const STATUS = { ok: ["ok", "OK"], warning: ["warn", "Advarsel"], error: ["err", "Feil"], running: ["", "Kjører"], done: ["ok", "Synkronisert"], skipped: ["", "Hoppet over"] };
+const badge = (s) => { const [c, t] = STATUS[s] || ["", s || "–"]; return `<span class="badge ${c}">${esc(t)}</span>`; };
+
+async function api(action, payload = {}) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { renderLogin(); throw new Error("Ikke innlogget"); }
+  const res = await fetch(`${cfg.SUPABASE_URL}/functions/v1/admin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: cfg.SUPABASE_ANON_KEY },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || `Feil ${res.status}`);
+  return body;
+}
+
+function showMsg(el, kind, text) { el.className = `msg ${kind}`; el.textContent = text; el.classList.remove("hidden"); }
+
+// ---------------- innlogging ----------------
+function renderLogin() {
+  document.getElementById("hdr").classList.add("hidden");
+  app.innerHTML = `
+    <div class="panel login">
+      <h2>Logg inn</h2>
+      <p class="muted">Administrasjon av Squarespace–Tripletex-integrasjoner.</p>
+      <div id="lmsg" class="hidden"></div>
+      <form id="lf">
+        <div class="field"><label for="em">E-post</label><input id="em" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="pw">Passord</label><input id="pw" type="password" autocomplete="current-password" required></div>
+        <button class="primary" type="submit" style="width:100%">Logg inn</button>
+      </form>
+    </div>`;
+  document.getElementById("lf").onsubmit = async (e) => {
+    e.preventDefault();
+    const { error } = await sb.auth.signInWithPassword({ email: em.value.trim(), password: pw.value });
+    if (error) showMsg(document.getElementById("lmsg"), "err", "Feil e-post eller passord.");
+    else start();
+  };
+}
+document.getElementById("logout").onclick = async () => { await sb.auth.signOut(); renderLogin(); };
+
+// ---------------- klientliste ----------------
+async function renderList() {
+  app.innerHTML = `<div class="row" style="margin-bottom:16px"><div><h2>Klienter</h2><p class="muted" style="margin:0">Hver klient er én Squarespace-butikk koblet til én Tripletex-konto.</p></div><span class="spacer"></span><button class="primary" id="new">+ Ny klient</button></div><div class="panel" id="list"><p class="muted">Laster …</p></div>`;
+  document.getElementById("new").onclick = () => renderClient(null);
+  try {
+    const { clients } = await api("list_clients");
+    const list = document.getElementById("list");
+    if (!clients.length) { list.innerHTML = `<div class="empty">Ingen klienter ennå.<br><br><button class="primary" onclick="renderClient(null)">Opprett første klient</button></div>`; return; }
+    list.innerHTML = `<div class="tablewrap"><table><thead><tr><th>Navn</th><th>Status</th><th>Siste kjøring</th><th>Resultat</th><th>Tripletex</th></tr></thead><tbody>${
+      clients.map((c) => `<tr class="click" data-id="${esc(c.id)}"><td><strong>${esc(c.name)}</strong></td>
+        <td>${c.active ? '<span class="badge ok">Aktiv</span>' : '<span class="badge">Inaktiv</span>'}</td>
+        <td>${fmt(c.last_run_at)}</td><td>${c.last_run_status ? badge(c.last_run_status) : "–"}</td>
+        <td>${c.tx_environment === "test" ? "Test" : "Produksjon"}</td></tr>`).join("")
+    }</tbody></table></div>`;
+    list.querySelectorAll("tr.click").forEach((tr) => tr.onclick = () => renderClient(tr.dataset.id));
+  } catch (e) { document.getElementById("list").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+}
+
+// ---------------- klient ----------------
+let current = null, txOptions = null;
+
+async function renderClient(id) {
+  current = null; txOptions = null;
+  app.innerHTML = `<p class="muted">Laster …</p>`;
+  if (id) {
+    try { current = (await api("get_client", { id })).client; }
+    catch (e) { app.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  }
+  const c = current || { name: "", tx_environment: "production", tx_auth_mode: "api_token", tx_company_id: "0", settings: {}, has_secrets: {} };
+  const s = c.settings || {};
+  const hs = c.has_secrets || {};
+  const ph = (k) => hs[k] ? "Lagret – la stå tomt for å beholde" : "";
+  const chk = (k, d) => (s[k] ?? d) ? "checked" : "";
+  const local = (iso) => { if (!iso) return ""; const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+
+  app.innerHTML = `
+    <div class="row"><button class="link" id="back">← Alle klienter</button></div>
+    <div class="row" style="margin-top:10px">
+      <h2 style="margin:0">${c.id ? esc(c.name) : "Ny klient"}</h2>
+      ${c.id ? (c.active ? '<span class="badge ok">Aktiv</span>' : '<span class="badge">Inaktiv</span>') : ""}
+    </div>
+    ${c.id && c.last_error ? `<div class="msg err" style="margin-top:12px">Siste feil: ${esc(c.last_error)}</div>` : ""}
+    <div class="tabs"><button class="on" data-tab="setup">Oppsett</button>${c.id ? '<button data-tab="log">Logg</button>' : ""}</div>
+    <div id="msg" class="hidden"></div>
+
+    <div id="tab-setup">
+      <form id="cf" autocomplete="off">
+        <div class="panel">
+          <h3>Generelt</h3>
+          <div class="field"><label for="f_name">Navn på klient</label><input id="f_name" type="text" value="${esc(c.name)}" required placeholder="F.eks. Butikk AS"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Squarespace</h3>
+          <div class="field"><label for="f_sqs">API-nøkkel</label>
+            <input id="f_sqs" type="password" placeholder="${ph("sqs_api_key")}">
+            <div class="hint">Squarespace → Settings → Advanced → Developer API Keys. Gi tilgang til <b>Orders</b> og <b>Products</b> (lesetilgang holder). Krever Commerce Advanced-abonnement.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Tripletex</h3>
+          <div class="grid2">
+            <div class="field"><label for="f_env">Miljø</label>
+              <select id="f_env"><option value="production">Produksjon (tripletex.no)</option><option value="test">Test (api-test.tripletex.tech)</option></select></div>
+            <div class="field"><label for="f_mode">Autentisering</label>
+              <select id="f_mode"><option value="api_token">API-token (intern integrasjon – anbefalt)</option><option value="consumer_employee">Consumer- + employee-token</option></select></div>
+          </div>
+          <div id="m_api" class="field"><label for="f_jwt">API-token</label>
+            <input id="f_jwt" type="password" placeholder="${ph("tx_api_token")}">
+            <div class="hint">Tripletex → Selskap → API-tokens (krever brukeradministrator). Tokenet vises bare én gang.</div></div>
+          <div id="m_ce" class="grid2">
+            <div class="field"><label for="f_ct">Consumer-token</label><input id="f_ct" type="password" placeholder="${ph("tx_consumer_token")}"></div>
+            <div class="field"><label for="f_et">Employee-token</label><input id="f_et" type="password" placeholder="${ph("tx_employee_token")}"></div>
+          </div>
+          <details><summary class="muted" style="cursor:pointer">Avansert</summary>
+            <div class="field" style="margin-top:10px"><label for="f_cid">Selskaps-ID</label><input id="f_cid" type="text" value="${esc(c.tx_company_id || "0")}">
+              <div class="hint">0 = selskapet til den som eier tokenet. Bruk klientens ID bare for regnskapsfører-tokens.</div></div>
+          </details>
+        </div>
+
+        <div class="panel">
+          <h3>Hva skal synkroniseres</h3>
+          <label class="check"><input type="checkbox" id="s_orders" ${chk("sync_orders", true)}><span><b>Ordre → ordre/faktura</b><br><small class="muted">Betalte Squarespace-ordre opprettes som ordre i Tripletex.</small></span></label>
+          <label class="check"><input type="checkbox" id="s_customers" ${chk("sync_customers", true)}><span><b>Kjøpere → kunder</b><br><small class="muted">Kunden finnes via e-post, ellers opprettes den. Av: alle ordre føres på én felles «Nettbutikk»-kunde.</small></span></label>
+          <label class="check"><input type="checkbox" id="s_products" ${chk("sync_products", true)}><span><b>Produkter → produkter</b><br><small class="muted">Hver variant blir et produkt med SKU som produktnummer.</small></span></label>
+          <div id="prodopts" style="margin-left:26px">
+            <label class="check"><input type="checkbox" id="s_upd" ${chk("update_existing_products", true)}><span>Oppdater navn og pris på eksisterende produkter</span></label>
+            <label class="check"><input type="checkbox" id="s_pincl" ${chk("product_prices_include_vat", true)}><span>Produktpriser i Squarespace er inkl. mva</span></label>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Faktura og mva</h3>
+          <label class="check"><input type="checkbox" id="s_inv" ${chk("create_invoice", true)}><span><b>Fakturer ordren automatisk</b></span></label>
+          <div id="invopts" style="margin-left:26px">
+            <label class="check"><input type="checkbox" id="s_send" ${chk("send_invoice_to_customer", false)}><span>Send faktura til kunden (e-post fra Tripletex)</span></label>
+            <label class="check"><input type="checkbox" id="s_paid" ${chk("mark_invoice_paid", true)}><span>Marker faktura som betalt (kunden har betalt i nettbutikken)</span></label>
+          </div>
+          <div class="row" style="margin:6px 0 12px"><button type="button" id="loadtx" ${c.id ? "" : "disabled"}>Hent valg fra Tripletex</button>
+            <small class="muted" id="loadhint">${c.id ? "Henter betalingstyper og mva-koder fra kontoen." : "Lagre klienten først."}</small></div>
+          <div class="grid2">
+            <div class="field"><label for="s_pt">Betalingstype for innbetaling</label><select id="s_pt"></select>
+              <div class="hint">Konto innbetalingen føres mot, f.eks. «Nettbutikk/Stripe».</div></div>
+            <div class="field"><label for="s_vat">Mva-kode for salg</label><select id="s_vat"></select>
+              <div class="hint">Vanligvis 3 – utgående mva, høy sats (25 %).</div></div>
+            <div class="field"><label for="s_vat0">Mva-kode når ordren har 0 i mva</label><select id="s_vat0"></select>
+              <div class="hint">F.eks. 6 (utenfor mva-loven) eller 52 (utførsel).</div></div>
+          </div>
+          <label class="check"><input type="checkbox" id="s_test" ${chk("include_test_orders", false)}><span>Ta med testordre fra Squarespace</span></label>
+        </div>
+
+        <div class="panel">
+          <h3>Startpunkt</h3>
+          <div class="field" style="max-width:320px"><label for="f_from">Synkroniser ordre opprettet fra og med</label>
+            <input id="f_from" type="datetime-local" value="${local(c.sync_from)}">
+            <div class="hint">Tomt = fra tidspunktet du aktiverer. Eldre ordre hentes ikke.</div></div>
+        </div>
+
+        <div class="stickybar row">
+          <button class="primary" type="submit" id="save">Lagre</button>
+          ${c.id ? `<button type="button" id="test">Test tilkobling</button>
+            ${c.active ? '<button type="button" id="deact">Deaktiver</button><button type="button" id="run">Synk nå</button>'
+                       : '<button type="button" class="primary" id="act">Aktiver</button>'}
+            <span class="spacer"></span><button type="button" class="danger" id="del">Slett</button>` : ""}
+        </div>
+      </form>
+    </div>
+    <div id="tab-log" class="hidden"></div>`;
+
+  const $ = (i) => document.getElementById(i);
+  const msg = $("msg");
+  $("back").onclick = renderList;
+  $("f_env").value = c.tx_environment; $("f_mode").value = c.tx_auth_mode;
+  const toggle = () => {
+    $("m_api").classList.toggle("hidden", $("f_mode").value !== "api_token");
+    $("m_ce").classList.toggle("hidden", $("f_mode").value === "api_token");
+    $("prodopts").classList.toggle("hidden", !$("s_products").checked);
+    $("invopts").classList.toggle("hidden", !$("s_inv").checked);
+    $("s_pt").disabled = !($("s_inv").checked && $("s_paid").checked);
+  };
+  ["f_mode", "s_products", "s_inv", "s_paid"].forEach((i) => $(i).onchange = toggle); toggle();
+
+  const fillSelects = () => {
+    const pt = s.payment_type_id, v = String(s.vat_type_number ?? "3"), v0 = String(s.zero_vat_type_number ?? "6");
+    const opt = (val, text, sel) => `<option value="${esc(val)}" ${sel ? "selected" : ""}>${esc(text)}</option>`;
+    if (txOptions) {
+      $("s_pt").innerHTML = opt("", "– velg –", !pt) + txOptions.paymentTypes.map((p) => opt(p.id, p.description, p.id === pt)).join("");
+      const vats = txOptions.vatTypes.filter((x) => x.number !== null && x.number !== "").sort((a, b) => Number(a.number) - Number(b.number));
+      const vo = (sel) => vats.map((x) => opt(x.number, `${x.number} – ${x.name} (${x.percentage} %)`, String(x.number) === sel)).join("");
+      $("s_vat").innerHTML = vo(v); $("s_vat0").innerHTML = vo(v0);
+    } else {
+      $("s_pt").innerHTML = pt ? opt(pt, `Valgt (ID ${pt})`, true) : opt("", "Hent valg fra Tripletex", true);
+      $("s_vat").innerHTML = opt(v, `Kode ${v}`, true); $("s_vat0").innerHTML = opt(v0, `Kode ${v0}`, true);
+    }
+  };
+  fillSelects();
+
+  if (c.id) $("loadtx").onclick = async () => {
+    $("loadtx").disabled = true; $("loadhint").textContent = "Henter …";
+    try { txOptions = await api("tripletex_options", { id: c.id }); fillSelects(); $("loadhint").textContent = "Oppdatert fra Tripletex."; }
+    catch (e) { $("loadhint").textContent = e.message; }
+    $("loadtx").disabled = false;
+  };
+
+  const collect = () => ({
+    client: {
+      id: c.id, name: $("f_name").value, tx_environment: $("f_env").value, tx_auth_mode: $("f_mode").value, tx_company_id: $("f_cid").value,
+      sync_from: $("f_from").value ? new Date($("f_from").value).toISOString() : null,
+      settings: {
+        sync_orders: $("s_orders").checked, sync_customers: $("s_customers").checked, sync_products: $("s_products").checked,
+        update_existing_products: $("s_upd").checked, product_prices_include_vat: $("s_pincl").checked,
+        create_invoice: $("s_inv").checked, send_invoice_to_customer: $("s_send").checked, mark_invoice_paid: $("s_paid").checked,
+        payment_type_id: $("s_pt").value ? Number($("s_pt").value) : null,
+        vat_type_number: $("s_vat").value || "3", zero_vat_type_number: $("s_vat0").value || "6",
+        include_test_orders: $("s_test").checked,
+      },
+    },
+    secrets: { sqs_api_key: $("f_sqs").value, tx_api_token: $("f_jwt").value, tx_consumer_token: $("f_ct").value, tx_employee_token: $("f_et").value },
+  });
+
+  const busy = async (btn, fn) => { const t = btn.textContent; btn.disabled = true; btn.textContent = "Vent …"; try { await fn(); } catch (e) { showMsg(msg, "err", e.message); } finally { btn.disabled = false; btn.textContent = t; } };
+  const save = async () => { const r = await api("save_client", collect()); current = r.client; return r.client; };
+  const testText = (t) => `Squarespace: ${t.squarespace.ok ? "✓ " : "✗ "}${t.squarespace.message}\nTripletex: ${t.tripletex.ok ? "✓ " : "✗ "}${t.tripletex.message}`;
+
+  $("cf").onsubmit = (e) => { e.preventDefault(); busy($("save"), async () => {
+    const isNew = !c.id; const saved = await save();
+    if (isNew) { await renderClient(saved.id); showMsg(document.getElementById("msg"), "ok", "Klienten er lagret. Test tilkoblingen, hent valg fra Tripletex og trykk «Aktiver»."); }
+    else { showMsg(msg, "ok", "Lagret."); }
+  }); };
+
+  if (!c.id) return;
+  $("test").onclick = () => busy($("test"), async () => { await save(); const t = await api("test_connection", { id: c.id }); showMsg(msg, t.squarespace.ok && t.tripletex.ok ? "ok" : "err", testText(t)); });
+  if ($("act")) $("act").onclick = () => busy($("act"), async () => {
+    await save();
+    const r = await api("activate", { id: c.id });
+    if (!r.ok) { showMsg(msg, "err", "Kunne ikke aktivere – tilkoblingen feilet:\n" + testText(r.test)); return; }
+    await renderClient(c.id);
+    showMsg(document.getElementById("msg"), "ok", "Aktivert! Første synk kjører nå, deretter automatisk hvert 10. minutt.");
+  });
+  if ($("deact")) $("deact").onclick = () => busy($("deact"), async () => { await api("deactivate", { id: c.id }); await renderClient(c.id); showMsg(document.getElementById("msg"), "info", "Deaktivert. Ingen synk kjører før du aktiverer igjen."); });
+  if ($("run")) $("run").onclick = () => busy($("run"), async () => {
+    await save(); showMsg(msg, "info", "Synkroniserer …");
+    const r = await api("run_now", { id: c.id });
+    if (r.skipped) showMsg(msg, "info", `Hoppet over: ${r.skipped}`);
+    else if (r.status === "error") showMsg(msg, "err", r.error);
+    else showMsg(msg, r.status === "ok" ? "ok" : "err", `Ordre synkronisert: ${r.ordersSynced} · feilet: ${r.ordersFailed} · hoppet over: ${r.ordersSkipped} · produkter: ${r.productsSynced}${r.messages?.length ? "\n\n" + r.messages.join("\n") : ""}`);
+  });
+  $("del").onclick = () => busy($("del"), async () => {
+    if (prompt(`Skriv inn klientnavnet «${c.name}» for å slette klienten og all logg:`) !== c.name) return;
+    await api("delete_client", { id: c.id }); renderList();
+  });
+
+  document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => {
+    document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));
+    $("tab-setup").classList.toggle("hidden", b.dataset.tab !== "setup");
+    $("tab-log").classList.toggle("hidden", b.dataset.tab !== "log");
+    if (b.dataset.tab === "log") renderLog(c.id);
+  });
+}
+
+async function renderLog(id) {
+  const el = document.getElementById("tab-log");
+  el.innerHTML = `<p class="muted">Laster …</p>`;
+  try {
+    const { runs, orders } = await api("logs", { id });
+    el.innerHTML = `
+      <div class="panel"><div class="row"><h3 style="margin:0">Ordre</h3><span class="spacer"></span><button id="reload">Oppdater</button></div>
+        ${orders.length ? `<div class="tablewrap"><table><thead><tr><th>Ordre</th><th>Status</th><th>Tripletex</th><th>Oppdatert</th><th>Melding</th><th></th></tr></thead><tbody>${
+          orders.map((o) => `<tr><td>#${esc(o.sqs_order_number)}</td><td>${badge(o.status)}${o.status === "error" ? ` <small class="muted">${o.attempts}/5</small>` : ""}</td>
+            <td>${o.tx_invoice_number ? "Faktura " + esc(o.tx_invoice_number) : o.tx_order_id ? "Ordre " + esc(o.tx_order_id) : "–"}</td>
+            <td>${fmt(o.updated_at)}</td><td class="pre">${esc(o.error || "")}</td>
+            <td>${o.status === "error" ? `<button class="link" data-retry="${esc(o.sqs_order_id)}">Prøv igjen</button>` : ""}</td></tr>`).join("")
+        }</tbody></table></div>` : `<p class="muted">Ingen ordre synkronisert ennå.</p>`}
+      </div>
+      <div class="panel"><h3>Kjøringer</h3>
+        ${runs.length ? `<div class="tablewrap"><table><thead><tr><th>Start</th><th>Utløser</th><th>Status</th><th>Ordre</th><th>Feilet</th><th>Produkter</th><th>Melding</th></tr></thead><tbody>${
+          runs.map((r) => `<tr><td>${fmt(r.started_at)}</td><td>${esc(r.trigger)}</td><td>${badge(r.status)}</td><td>${r.orders_synced}</td><td>${r.orders_failed}</td><td>${r.products_synced}</td><td class="pre">${esc(r.message || "")}</td></tr>`).join("")
+        }</tbody></table></div>` : `<p class="muted">Ingen kjøringer ennå.</p>`}
+      </div>`;
+    document.getElementById("reload").onclick = () => renderLog(id);
+    el.querySelectorAll("[data-retry]").forEach((b) => b.onclick = async () => { await api("retry_order", { id, sqs_order_id: b.dataset.retry }); b.replaceWith("Settes i kø"); });
+  } catch (e) { el.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+}
+
+async function start() {
+  if (!cfg.SUPABASE_URL || cfg.SUPABASE_URL.includes("DITT-PROSJEKT")) {
+    app.innerHTML = `<div class="panel login"><h2>Mangler oppsett</h2><p>Fyll inn SUPABASE_URL og SUPABASE_ANON_KEY i <code>config.js</code>.</p></div>`; return;
+  }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return renderLogin();
+  document.getElementById("hdr").classList.remove("hidden");
+  document.getElementById("who").textContent = session.user.email;
+  renderList();
+}
+start();
+</script>
+</body>
+</html>

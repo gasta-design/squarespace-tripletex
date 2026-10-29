@@ -1,0 +1,13 @@
+-- Fylles ut og kjøres av GitHub Actions første gang (eller når CRON_SECRET fornyes).
+do $body$
+declare sid uuid;
+begin
+  select id into sid from vault.secrets where name = 'project_url';
+  if sid is null then perform vault.create_secret('__PROJECT_URL__', 'project_url');
+  else perform vault.update_secret(sid, '__PROJECT_URL__'); end if;
+
+  select id into sid from vault.secrets where name = 'cron_secret';
+  if sid is null then perform vault.create_secret('__CRON_SECRET__', 'cron_secret');
+  else perform vault.update_secret(sid, '__CRON_SECRET__'); end if;
+end
+$body$;
