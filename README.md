@@ -57,7 +57,7 @@ Kol `SUPABASE_PROJECT_REF` nenustatytas, diegimas tiesiog praleidžiamas.
 
 Vieša registracija uždaryta. Visi vartotojai turi pilną prieigą ir valdomi pačioje aplikacijoje:
 
-- **Brukere**: vartotojų sąrašas (sukūrimo ir paskutinio prisijungimo data), naujo vartotojo pridėjimas su laikinu slaptažodžiu, kito vartotojo slaptažodžio pakeitimas („Nytt passord“) ir ištrynimas. Savęs ištrinti negalima.
+- **Brukere**: vartotojų sąrašas (sukūrimo ir paskutinio prisijungimo data), naujo vartotojo pridėjimas su laikinu slaptažodžiu ir ištrynimas. Savęs ištrinti negalima. Kitų vartotojų slaptažodžių keisti negalima, kiekvienas keičia tik savo (*Endre passord*).
 - **Endre passord**: savo slaptažodžio keitimas. Būtina įvesti dabartinį slaptažodį, jis patikrinamas serveryje. Naujas slaptažodis turi būti bent 10 simbolių.
 
 ## Naujo kliento prijungimas

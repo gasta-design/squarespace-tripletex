@@ -413,18 +413,11 @@ async function renderUsers() {
       el.innerHTML = `<div class="tablewrap"><table><thead><tr><th>E-post</th><th>Opprettet</th><th>Sist innlogget</th><th></th></tr></thead><tbody>${
         users.map((u) => `<tr><td><strong>${esc(u.email)}</strong>${u.id === me ? ' <span class="badge">Deg</span>' : ""}</td>
           <td>${fmt(u.created_at)}</td><td>${fmt(u.last_sign_in_at)}</td>
-          <td style="text-align:right">${u.id === me ? "" : `<button class="link" data-pw="${esc(u.id)}" data-email="${esc(u.email)}">Nytt passord</button>
-            &nbsp; <button class="link danger" style="color:var(--err)" data-del="${esc(u.id)}" data-email="${esc(u.email)}">Slett</button>`}</td></tr>`).join("")
+          <td style="text-align:right">${u.id === me ? "" : `<button class="link danger" style="color:var(--err)" data-del="${esc(u.id)}" data-email="${esc(u.email)}">Slett</button>`}</td></tr>`).join("")
       }</tbody></table></div>`;
       el.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
         if (!confirm(`Slette brukeren ${b.dataset.email}? Brukeren mister tilgang umiddelbart.`)) return;
         try { await api("delete_user", { id: b.dataset.del }); showMsg(msg, "ok", `${b.dataset.email} er slettet.`); load(); }
-        catch (e) { showMsg(msg, "err", e.message); }
-      });
-      el.querySelectorAll("[data-pw]").forEach((b) => b.onclick = async () => {
-        const pw = prompt(`Nytt passord for ${b.dataset.email} (minst ${MIN_PW} tegn):`);
-        if (pw === null) return;
-        try { await api("set_user_password", { id: b.dataset.pw, password: pw }); showMsg(msg, "ok", `Passordet til ${b.dataset.email} er endret.`); }
         catch (e) { showMsg(msg, "err", e.message); }
       });
     } catch (e) { el.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }

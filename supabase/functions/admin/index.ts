@@ -200,13 +200,6 @@ Deno.serve(async (req) => {
         return json({ user: publicUser(data.user) });
       }
 
-      case "set_user_password": {
-        if (body.id === me.id) throw new BadRequest("Bruk «Endre passord» for din egen bruker");
-        const { error } = await db.auth.admin.updateUserById(String(body.id), { password: checkPassword(body.password) });
-        if (error) throw new Error(error.message);
-        return json({ ok: true });
-      }
-
       case "delete_user": {
         if (body.id === me.id) throw new BadRequest("Du kan ikke slette din egen bruker");
         const { error } = await db.auth.admin.deleteUser(String(body.id));
